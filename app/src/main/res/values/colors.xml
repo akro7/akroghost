@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds -->
+    <color name="bg_dark">#070A10</color>
+    <color name="bg_card">#0D111A</color>
+
+    <!-- Neon WhatsApp Green + Lightning Yellow -->
+    <color name="neon_green">#25D366</color>
+    <color name="neon_green_dark">#128C7E</color>
+    <color name="neon_yellow">#F6C90E</color>
+    <color name="neon_cyan">#00E5FF</color>
+    <color name="neon_white">#E8F5E9</color>
+
+    <!-- Text -->
+    <color name="text_primary">#F0F0F0</color>
+    <color name="text_secondary">#A0AEC0</color>
+
+    <!-- Glows -->
+    <color name="glow_green_low">#3325D366</color>
+    <color name="glow_yellow_low">#33F6C90E</color>
+    <color name="white_alpha_10">#1AFFFFFF</color>
+    <color name="border_light">#1AFFFFFF</color>
+
+    <!-- Legacy -->
+    <color name="colorPrimary">#25D366</color>
+    <color name="colorPrimaryDark">#070A10</color>
+    <color name="colorAccent">#F6C90E</color>
+</resources>

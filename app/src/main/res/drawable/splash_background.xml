@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Akrowats Splash Background
+    خلفية داكنة مع برق أصفر + دائرة واتساب خضراء
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ══════════════════════════════════════════
+         الطبقة 1: خلفية داكنة متدرجة (أسود إلى أخضر داكن)
+         ══════════════════════════════════════════ -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="#020508"
+                android:centerColor="#061210"
+                android:endColor="#070A10" />
+        </shape>
+    </item>
+
+    <!-- ══════════════════════════════════════════
+         الطبقة 2: توهج واتساب أخضر في المنتصف
+         ══════════════════════════════════════════ -->
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="300%"
+                android:startColor="#2225D366"
+                android:endColor="#0025D366" />
+            <size android:width="400dp" android:height="400dp" />
+        </shape>
+    </item>
+
+    <!-- ══════════════════════════════════════════
+         الطبقة 3: دائرة واتساب الخضراء (خلف الأيقونة)
+         ══════════════════════════════════════════ -->
+    <item
+        android:gravity="center"
+        android:bottom="80dp">
+        <shape android:shape="oval">
+            <solid android:color="#1525D366" />
+            <stroke
+                android:width="2dp"
+                android:color="#4425D366" />
+            <size android:width="180dp" android:height="180dp" />
+        </shape>
+    </item>
+
+    <!-- ══════════════════════════════════════════
+         الطبقة 4: برق أصفر — الشكل الرئيسي
+         ══════════════════════════════════════════ -->
+    <item
+        android:gravity="center"
+        android:bottom="68dp">
+        <!-- برق SVG path: شكل ⚡ -->
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+
+    <!-- ══════════════════════════════════════════
+         الطبقة 5: خط عرضي نيون أخضر (زي EKO)
+         ══════════════════════════════════════════ -->
+    <item
+        android:top="1dp"
+        android:bottom="1dp"
+        android:left="0dp"
+        android:right="0dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#0025D366"
+                android:centerColor="#3325D366"
+                android:endColor="#0025D366" />
+            <size android:height="1dp" />
+        </shape>
+    </item>
+
+</layer-list>

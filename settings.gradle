@@ -1,0 +1,2 @@
+rootProject.name = "Akrowats"
+include ':app'

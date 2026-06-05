@@ -1,0 +1,293 @@
+name: Akrowats Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Force Gradle 8.7
+        run: |
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+          echo "=== gradle-wrapper.properties ==="
+          cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: Build XposedBridge Stub JAR
+        run: |
+          mkdir -p app/libs
+          mkdir -p /tmp/xstub/de/robv/android/xposed/callbacks
+
+          cat > /tmp/xstub/de/robv/android/xposed/IXposedMod.java << 'EOF'
+          package de.robv.android.xposed;
+          public interface IXposedMod {}
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/IXposedHookLoadPackage.java << 'EOF'
+          package de.robv.android.xposed;
+          import de.robv.android.xposed.callbacks.XC_LoadPackage;
+          public interface IXposedHookLoadPackage extends IXposedMod {
+              void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable;
+          }
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/callbacks/XC_LoadPackage.java << 'EOF'
+          package de.robv.android.xposed.callbacks;
+          public class XC_LoadPackage {
+              public static class LoadPackageParam {
+                  public String packageName;
+                  public ClassLoader classLoader;
+              }
+          }
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/XC_MethodHook.java << 'EOF'
+          package de.robv.android.xposed;
+          public abstract class XC_MethodHook {
+              public class MethodHookParam {
+                  public Object thisObject;
+                  public Object[] args;
+                  public void setResult(Object result) {}
+                  public void setThrowable(Throwable t) {}
+                  public Object getResult() { return null; }
+                  public Throwable getThrowable() { return null; }
+              }
+              protected void beforeHookedMethod(MethodHookParam param) throws Throwable {}
+              protected void afterHookedMethod(MethodHookParam param) throws Throwable {}
+          }
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/XposedBridge.java << 'EOF'
+          package de.robv.android.xposed;
+          import java.lang.reflect.Member;
+          public class XposedBridge {
+              public static void log(String text) {}
+              public static void log(Throwable t) {}
+              public static Object invokeOriginalMethod(Member method, Object thisObject, Object[] args) throws Throwable { return null; }
+              public static Object hookAllMethods(Class<?> hookClass, String methodName, XC_MethodHook callback) { return null; }
+          }
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/XposedHelpers.java << 'EOF'
+          package de.robv.android.xposed;
+          public class XposedHelpers {
+              public static Object findAndHookMethod(String className, ClassLoader classLoader, String methodName, Object... args) { return null; }
+              public static Object findAndHookMethod(Class<?> clazz, String methodName, Object... args) { return null; }
+              public static Class<?> findClass(String className, ClassLoader classLoader) { return null; }
+              public static Object getObjectField(Object obj, String fieldName) { return null; }
+              public static void setObjectField(Object obj, String fieldName, Object value) {}
+              public static boolean getBooleanField(Object obj, String fieldName) { return false; }
+              public static void setBooleanField(Object obj, String fieldName, boolean value) {}
+          }
+          EOF
+
+          cat > /tmp/xstub/de/robv/android/xposed/XSharedPreferences.java << 'EOF'
+          package de.robv.android.xposed;
+          import java.util.Map;
+          import java.util.Set;
+          import android.content.SharedPreferences;
+          public class XSharedPreferences implements SharedPreferences {
+              public XSharedPreferences(String packageName, String prefFileName) {}
+              public void makeWorldReadable() {}
+              public void reload() {}
+              public Map<String,?> getAll() { return null; }
+              public String getString(String key, String defValue) { return defValue; }
+              public Set<String> getStringSet(String key, Set<String> defValues) { return defValues; }
+              public int getInt(String key, int defValue) { return defValue; }
+              public long getLong(String key, long defValue) { return defValue; }
+              public float getFloat(String key, float defValue) { return defValue; }
+              public boolean getBoolean(String key, boolean defValue) { return defValue; }
+              public boolean contains(String key) { return false; }
+              public Editor edit() { return null; }
+              public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l) {}
+              public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l) {}
+          }
+          EOF
+
+          ANDROID_JAR=$(find $ANDROID_HOME/platforms -name "android.jar" | sort -V | tail -1)
+          echo "Using android.jar: $ANDROID_JAR"
+
+          find /tmp/xstub -name "*.java" | xargs javac -source 8 -target 8 \
+            -cp "$ANDROID_JAR" \
+            -d /tmp/xstub
+
+          cd /tmp/xstub
+          jar cf /tmp/XposedBridgeApi-82.jar $(find . -name "*.class" | sed 's|^\./||')
+          cp /tmp/XposedBridgeApi-82.jar $GITHUB_WORKSPACE/app/libs/XposedBridgeApi-82.jar
+          cd -
+
+          ls -lh app/libs/
+          echo "XposedBridge stub JAR ready"
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Clear Gradle Cache
+        run: |
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/wrapper/dists/gradle-8.2*
+
+      - name: Build APK
+        id: build
+        run: |
+          ./gradlew assembleDebug assembleRelease --stacktrace 2>&1 | tee build_output.txt
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "=== LAST 80 LINES ==="
+            tail -80 build_output.txt
+          fi
+          exit $BUILD_EXIT
+
+      - name: Generate Failure Report
+        if: failure()
+        run: |
+          python3 << 'EOF'
+          import os, re
+          from datetime import datetime
+
+          def read(p):
+              try:
+                  with open(p, 'r', errors='ignore') as f: return f.read()
+              except: return ""
+
+          build_log = read("build_output.txt")
+          now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+          lines = build_log.split('\n')
+
+          error_keywords = ['error:', 'FAILED', 'Exception', 'Could not', 'Caused by:', 'BUILD FAILED']
+          errors = []
+          for i, line in enumerate(lines):
+              if any(k in line for k in error_keywords):
+                  start = max(0, i - 2)
+                  end = min(len(lines), i + 8)
+                  block = '\n'.join(lines[start:end])
+                  if block not in errors:
+                      errors.append(block)
+
+          java_errors = re.findall(r'([^\s]+\.(?:java|kt)):(\d+): (?:error|warning): (.+)', build_log)
+          failed_tasks = re.findall(r'> Task (.+?) FAILED', build_log)
+
+          report = ["=" * 70, "  AKROWATS BUILD FAILURE REPORT", f"  Date: {now}", "=" * 70]
+          report += ["\n[ FAILED TASKS ]", "-" * 70]
+          report += [f"  X {t}" for t in set(failed_tasks)] or ["  None"]
+
+          report += ["\n[ JAVA ERRORS ]", "-" * 70]
+          if java_errors:
+              seen = set()
+              for file, line, msg in java_errors:
+                  if f"{file}:{line}" not in seen:
+                      seen.add(f"{file}:{line}")
+                      report += [f"  File: {file}", f"  Line: {line}", f"  Err : {msg.strip()}", ""]
+          else:
+              report.append("  None")
+
+          report += ["\n[ ERROR BLOCKS ]", "-" * 70]
+          for i, err in enumerate(errors[:25], 1):
+              report += [f"\n--- #{i} ---", err]
+
+          report += ["\n[ FULL LOG ]", "-" * 70, build_log]
+
+          text = '\n'.join(report)
+          with open("BUILD_FAILURE_REPORT.txt", 'w') as f:
+              f.write(text)
+          print(text[:6000])
+          EOF
+
+      - name: Upload Failure Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAILURE-REPORT-${{ github.run_number }}
+          path: BUILD_FAILURE_REPORT.txt
+          retention-days: 30
+
+      - name: Sign Release APK
+        if: success() && env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > release.jks
+          BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          $ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner sign \
+            --ks release.jks \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass pass:"$STORE_PASSWORD" \
+            --key-pass pass:"$KEY_PASSWORD" \
+            --out app/build/outputs/apk/release/akrowats-signed.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          rm -f release.jks
+
+      - name: Get version info
+        if: success()
+        id: version
+        run: |
+          VERSION=$(grep "versionName" app/build.gradle | awk '{print $2}' | tr -d '"' | head -1)
+          CODE=$(grep "versionCode" app/build.gradle | awk '{print $2}' | head -1)
+          echo "version_name=${VERSION:-1.0}" >> $GITHUB_OUTPUT
+          echo "version_code=${CODE:-1}" >> $GITHUB_OUTPUT
+          echo "build_date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Upload Debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Akrowats-Debug-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_date }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+      - name: Upload Release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Akrowats-Release-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.build_date }}
+          path: |
+            app/build/outputs/apk/release/*-unsigned.apk
+            app/build/outputs/apk/release/*-signed.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Akrowats v${{ steps.version.outputs.version_name }}"
+          body: |
+            ## Akrowats v${{ steps.version.outputs.version_name }}
+            - Build: ${{ steps.version.outputs.version_code }}
+            - Date: ${{ steps.version.outputs.build_date }}
+            - Target: WhatsApp 2.26.19.73
+            - Framework: LSPosed / Xposed API 82
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

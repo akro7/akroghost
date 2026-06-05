@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Akrowats</string>
+    <string name="settings_title">إعدادات Akrowats</string>
+    <string name="save_profile">حفظ صور البروفايل</string>
+    <string name="save_story">حفظ الاستوري</string>
+    <string name="hide_blue_tick">إخفاء علامة القراءة</string>
+    <string name="hide_online">إخفاء حالة الاتصال</string>
+    <string name="hide_typing">إخفاء حالة الكتابة</string>
+</resources>
